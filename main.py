@@ -53,7 +53,8 @@ def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_fil
         base_command += ['-d', domain]
 
     print("[INFO] Running command:", ' '.join(base_command))
-    subprocess.run(base_command, check=True)
+    result = subprocess.run(base_command, stdout=sys.stdout, stderr=sys.stderr)
+    exit(result.returncode)
 
 
 def main():
