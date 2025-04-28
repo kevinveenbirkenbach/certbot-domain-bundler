@@ -2,6 +2,7 @@
 import argparse
 import subprocess
 from collections import defaultdict
+import sys
 
 
 def group_domains(domains, domain_categories):
