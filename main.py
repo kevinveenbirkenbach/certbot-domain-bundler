@@ -36,6 +36,7 @@ def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_fil
         'certbot', 'certonly',
         '--agree-tos',
         '--non-interactive',
+        '--expand',
         '--email', certbot_email
     ]
 
