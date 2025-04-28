@@ -3,12 +3,25 @@ import subprocess
 from collections import defaultdict
 
 
-def group_domains(domains, categorize_by_domain):
+def group_domains(domains, domain_categories):
     grouped = defaultdict(list)
-    for domain in domains:
-        if domain.endswith(categorize_by_domain):
-            grouped[categorize_by_domain].append(domain)
-        else:
+    if domain_categories:
+        # Sort categories by length descending to match the most specific first
+        sorted_categories = sorted(domain_categories, key=lambda x: len(x), reverse=True)
+        for domain in domains:
+            matched = False
+            for category in sorted_categories:
+                if domain.endswith(category):
+                    grouped[category].append(domain)
+                    matched = True
+                    break
+            if not matched:
+                parts = domain.split('.')
+                if len(parts) >= 2:
+                    key = '.'.join(parts[-2:])
+                    grouped[key].append(domain)
+    else:
+        for domain in domains:
             parts = domain.split('.')
             if len(parts) >= 2:
                 key = '.'.join(parts[-2:])
@@ -47,8 +60,8 @@ def main():
     parser = argparse.ArgumentParser(description='Request SAN certificates with Certbot.')
     parser.add_argument('--domains', type=str, required=True,
                         help='Comma-separated list of all domains.')
-    parser.add_argument('--categorize-by-domain', type=str, required=True,
-                        help='Domain under which to group subdomains.')
+    parser.add_argument('--domain-categories', type=str, required=False,
+                        help='Comma-separated list of domain categories under which to group subdomains.\nIf not specified, domains are grouped by their base domain (SLD.TLD).\nIf multiple categories match, the most specific (longest match) is used.')
     parser.add_argument('--certbot-credentials-file', type=str, default=None,
                         help='Path to the Certbot DNS credentials file (only for DNS challenge methods).')
     parser.add_argument('--certbot-acme-challenge-method', type=str, default='webroot',
@@ -65,8 +78,9 @@ def main():
     args = parser.parse_args()
 
     domains = [d.strip() for d in args.domains.split(',') if d.strip()]
+    domain_categories = [c.strip() for c in args.domain_categories.split(',')] if args.domain_categories else []
 
-    grouped_domains = group_domains(domains, args.categorize_by_domain)
+    grouped_domains = group_domains(domains, domain_categories)
 
     for group_key, domain_list in grouped_domains.items():
         print(f"[INFO] Requesting certificate for group '{group_key}' with domains: {domain_list}")
