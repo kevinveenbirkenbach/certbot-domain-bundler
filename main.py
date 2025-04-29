@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import subprocess
-from collections import defaultdict
 import sys
+import hashlib
+from collections import defaultdict
 
 def chunk_list(lst, size):
     """Yield successive chunks of length <= size from lst."""
@@ -34,15 +35,23 @@ def group_domains(domains, domain_categories):
                 grouped[key].append(domain)
     return grouped
 
-def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_file,
+def generate_domain_hash(all_domains):
+    """Generate a short hash (first 8 chars) from all domains sorted alphabetically."""
+    domains_sorted = sorted(all_domains)
+    joined = ",".join(domains_sorted)
+    hash_object = hashlib.sha256(joined.encode())
+    return hash_object.hexdigest()[:8]
+
+def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_credentials_file,
                  certbot_dns_propagation_seconds, certbot_email, certbot_webroot_path,
-                 cert_name=None, mode_test=False):
+                 mode_test=False):
     base_command = [
         'certbot', 'certonly',
         '--agree-tos',
         '--non-interactive',
         '--expand',
-        '--email', certbot_email
+        '--email', certbot_email,
+        '--cert-name', cert_name
     ]
 
     if certbot_acme_challenge_method != 'webroot':
@@ -57,13 +66,10 @@ def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_fil
     if mode_test:
         base_command.append('--test-cert')
 
-    if cert_name:
-        base_command += ['--cert-name', cert_name]
-
     for domain in domains:
         base_command += ['-d', domain]
 
-    print("[INFO] Running command:", ' '.join(base_command))
+    print(f"[INFO] Running command for cert-name '{cert_name}': {' '.join(base_command)}")
     result = subprocess.run(base_command, stdout=sys.stdout, stderr=sys.stderr)
     sys.exit(result.returncode)
 
@@ -92,31 +98,30 @@ def main():
 
     args = parser.parse_args()
 
-    domains = [d.strip() for d in args.domains.split(',') if d.strip()]
+    all_domains = [d.strip() for d in args.domains.split(',') if d.strip()]
+    domain_hash = generate_domain_hash(all_domains)
     categories = [c.strip() for c in args.domain_categories.split(',') if c.strip()]
-    grouped = group_domains(domains, categories)
+    grouped = group_domains(all_domains, categories)
     chunk_size = args.chunk_size
 
-    cert_start = 1  # Initial counter for cert-name numbering
-
     for group_key, domain_list in grouped.items():
+        # Optionally chunk further
         batches = [domain_list]
         if chunk_size and len(domain_list) > chunk_size:
             batches = list(chunk_list(domain_list, chunk_size))
 
-        for idx, batch in enumerate(batches):
-            cert_number = cert_start + idx * chunk_size
-            cert_name = f"certbundle-{cert_number:05d}"
-
-            print(f"[INFO] Requesting certificate for group '{cert_name}' with domains: {batch}")
+        for idx, batch in enumerate(batches, start=1):
+            batch_suffix = str(idx).zfill(5) if len(batches) > 1 else "00001"
+            cert_name = f"certbundle-{domain_hash}-{batch_suffix}"
+            print(f"[INFO] Requesting certificate for group '{group_key}' batch {idx}: {batch}")
             request_cert(
                 domains=batch,
+                cert_name=cert_name,
                 certbot_acme_challenge_method=args.certbot_acme_challenge_method,
                 certbot_credentials_file=args.certbot_credentials_file,
                 certbot_dns_propagation_seconds=args.certbot_dns_propagation_seconds,
                 certbot_email=args.certbot_email,
                 certbot_webroot_path=args.certbot_webroot_path,
-                cert_name=cert_name,
                 mode_test=args.mode_test
             )
 
