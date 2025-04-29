@@ -36,7 +36,7 @@ def group_domains(domains, domain_categories):
 
 def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_file,
                  certbot_dns_propagation_seconds, certbot_email, certbot_webroot_path,
-                 mode_test=False):
+                 cert_name=None, mode_test=False):
     base_command = [
         'certbot', 'certonly',
         '--agree-tos',
@@ -56,6 +56,9 @@ def request_cert(domains, certbot_acme_challenge_method, certbot_credentials_fil
 
     if mode_test:
         base_command.append('--test-cert')
+
+    if cert_name:
+        base_command += ['--cert-name', cert_name]
 
     for domain in domains:
         base_command += ['-d', domain]
@@ -94,15 +97,18 @@ def main():
     grouped = group_domains(domains, categories)
     chunk_size = args.chunk_size
 
+    cert_start = 1  # Initial counter for cert-name numbering
+
     for group_key, domain_list in grouped.items():
-        # optionally chunk further
         batches = [domain_list]
         if chunk_size and len(domain_list) > chunk_size:
             batches = list(chunk_list(domain_list, chunk_size))
 
-        for idx, batch in enumerate(batches, start=1):
-            batch_key = f"{group_key}-{idx}" if len(batches) > 1 else group_key
-            print(f"[INFO] Requesting certificate for group '{batch_key}' with domains: {batch}")
+        for idx, batch in enumerate(batches):
+            cert_number = cert_start + idx * chunk_size
+            cert_name = f"certbundle-{cert_number:05d}"
+
+            print(f"[INFO] Requesting certificate for group '{cert_name}' with domains: {batch}")
             request_cert(
                 domains=batch,
                 certbot_acme_challenge_method=args.certbot_acme_challenge_method,
@@ -110,6 +116,7 @@ def main():
                 certbot_dns_propagation_seconds=args.certbot_dns_propagation_seconds,
                 certbot_email=args.certbot_email,
                 certbot_webroot_path=args.certbot_webroot_path,
+                cert_name=cert_name,
                 mode_test=args.mode_test
             )
 
