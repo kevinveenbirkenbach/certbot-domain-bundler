@@ -6,14 +6,15 @@ import hashlib
 from collections import defaultdict
 
 def chunk_list(lst, size):
-    """Yield successive chunks of length <= size from lst."""
+    """Yield successive chunks of the given list."""
     for i in range(0, len(lst), size):
         yield lst[i:i + size]
 
 def group_domains(domains, domain_categories):
+    """Group domains either by specific categories or by their base domain (SLD.TLD)."""
     grouped = defaultdict(list)
     if domain_categories:
-        # Sort categories by length descending to match the most specific first
+        # Sort categories descending by length to match the most specific first
         sorted_categories = sorted(domain_categories, key=lambda x: len(x), reverse=True)
         for domain in domains:
             matched = False
@@ -36,7 +37,7 @@ def group_domains(domains, domain_categories):
     return grouped
 
 def generate_domain_hash(all_domains):
-    """Generate a short hash (first 8 chars) from all domains sorted alphabetically."""
+    """Generate a short hash (first 8 characters) from all domains sorted alphabetically."""
     domains_sorted = sorted(all_domains)
     joined = ",".join(domains_sorted)
     hash_object = hashlib.sha256(joined.encode())
@@ -45,6 +46,7 @@ def generate_domain_hash(all_domains):
 def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_credentials_file,
                  certbot_dns_propagation_seconds, certbot_email, certbot_webroot_path,
                  mode_test=False):
+    """Build and execute the Certbot command for the given domains and options."""
     base_command = [
         'certbot', 'certonly',
         '--agree-tos',
@@ -70,18 +72,22 @@ def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_cred
         base_command += ['-d', domain]
 
     print(f"[INFO] Running command for cert-name '{cert_name}': {' '.join(base_command)}")
-    result = subprocess.run(base_command, stdout=sys.stdout, stderr=sys.stderr)
-    sys.exit(result.returncode)
+    result = subprocess.run(base_command)
+
+    # Exit immediately if certbot failed
+    if result.returncode != 0:
+        print(f"[ERROR] Certbot failed for cert-name '{cert_name}'", file=sys.stderr)
+        sys.exit(result.returncode)
 
 def main():
-    parser = argparse.ArgumentParser(description='Request SAN certificates with Certbot.')
+    """Parse arguments and request certificates in batches if necessary."""
+    parser = argparse.ArgumentParser(description='Request SAN certificates using Certbot.')
     parser.add_argument('--domains', type=str, required=True,
-                        help='Comma-separated list of all domains.')
+                        help='Comma-separated list of domains.')
     parser.add_argument('--domain-categories', type=str, default='',
-                        help=('Comma-separated list of domain categories under which to group '
-                              'subdomains. If not specified, groups by base domain (SLD.TLD).'))
+                        help='Comma-separated list of domain categories for grouping.')
     parser.add_argument('--certbot-credentials-file', type=str, default=None,
-                        help='Path to the Certbot DNS credentials file (only for DNS methods).')
+                        help='Path to Certbot DNS credentials file (for DNS methods).')
     parser.add_argument('--certbot-acme-challenge-method', type=str, default='webroot',
                         help='ACME challenge method (default: webroot).')
     parser.add_argument('--certbot-dns-propagation-seconds', type=int, default=60,
@@ -91,10 +97,9 @@ def main():
     parser.add_argument('--certbot-webroot-path', type=str, default='/var/lib/letsencrypt/',
                         help='Webroot path for webroot challenge (default: /var/lib/letsencrypt/).')
     parser.add_argument('--mode-test', action='store_true',
-                        help='Use the Certbot test environment.')
+                        help='Use the Certbot staging environment for testing.')
     parser.add_argument('--chunk-size', type=int, default=0,
-                        help=('If >0, split each domain group into chunks of this size before '
-                              'requesting. If 0, no chunking is applied.'))
+                        help='Maximum number of domains per certificate (0 = no chunking).')
 
     args = parser.parse_args()
 
@@ -105,13 +110,12 @@ def main():
     chunk_size = args.chunk_size
 
     for group_key, domain_list in grouped.items():
-        # Optionally chunk further
         batches = [domain_list]
         if chunk_size and len(domain_list) > chunk_size:
             batches = list(chunk_list(domain_list, chunk_size))
 
         for idx, batch in enumerate(batches, start=1):
-            batch_suffix = str(idx).zfill(5) if len(batches) > 1 else "00001"
+            batch_suffix = str(idx).zfill(5)
             cert_name = f"certbundle-{domain_hash}-{batch_suffix}"
             print(f"[INFO] Requesting certificate for group '{group_key}' batch {idx}: {batch}")
             request_cert(
