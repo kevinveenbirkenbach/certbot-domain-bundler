@@ -74,7 +74,6 @@ def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_cred
     print(f"[INFO] Running command for cert-name '{cert_name}': {' '.join(base_command)}")
     result = subprocess.run(base_command)
 
-    # Exit immediately if certbot failed
     if result.returncode != 0:
         print(f"[ERROR] Certbot failed for cert-name '{cert_name}'", file=sys.stderr)
         sys.exit(result.returncode)
@@ -109,15 +108,17 @@ def main():
     grouped = group_domains(all_domains, categories)
     chunk_size = args.chunk_size
 
+    # globaler Chunk-Zähler
+    chunk_counter = 1
     for group_key, domain_list in grouped.items():
         batches = [domain_list]
         if chunk_size and len(domain_list) > chunk_size:
             batches = list(chunk_list(domain_list, chunk_size))
 
-        for idx, batch in enumerate(batches, start=1):
-            batch_suffix = str(idx).zfill(5)
+        for batch in batches:
+            batch_suffix = str(chunk_counter).zfill(5)
             cert_name = f"certbundle-{domain_hash}-{batch_suffix}"
-            print(f"[INFO] Requesting certificate for group '{group_key}' batch {idx}: {batch}")
+            print(f"[INFO] Requesting certificate for group '{group_key}' batch {chunk_counter}: {batch}")
             request_cert(
                 domains=batch,
                 cert_name=cert_name,
@@ -128,6 +129,7 @@ def main():
                 certbot_webroot_path=args.certbot_webroot_path,
                 mode_test=args.mode_test
             )
+            chunk_counter += 1
 
 if __name__ == '__main__':
     main()
