@@ -44,7 +44,7 @@ def generate_domain_hash(all_domains):
     return hash_object.hexdigest()[:8]
 
 def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_credentials_file,
-                 certbot_dns_propagation_seconds, certbot_email, certbot_webroot_path,
+                 certbot_dns_propagation_seconds, certbot_email, letsencrypt_webroot_path,
                  mode_test=False):
     """Build and execute the Certbot command for the given domains and options."""
     base_command = [
@@ -63,7 +63,7 @@ def request_cert(domains, cert_name, certbot_acme_challenge_method, certbot_cred
             f'--dns-{certbot_acme_challenge_method}-propagation-seconds', str(certbot_dns_propagation_seconds)
         ]
     else:
-        base_command += ['--webroot', '-w', certbot_webroot_path]
+        base_command += ['--webroot', '-w', letsencrypt_webroot_path]
 
     if mode_test:
         base_command.append('--test-cert')
@@ -126,7 +126,7 @@ def main():
                 certbot_credentials_file=args.certbot_credentials_file,
                 certbot_dns_propagation_seconds=args.certbot_dns_propagation_seconds,
                 certbot_email=args.certbot_email,
-                certbot_webroot_path=args.certbot_webroot_path,
+                letsencrypt_webroot_path=args.letsencrypt_webroot_path,
                 mode_test=args.mode_test
             )
             chunk_counter += 1

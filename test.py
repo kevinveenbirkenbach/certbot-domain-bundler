@@ -53,7 +53,7 @@ class TestRequestCert(unittest.TestCase):
             certbot_credentials_file=None,
             certbot_dns_propagation_seconds=0,
             certbot_email='user@example.com',
-            certbot_webroot_path='/tmp',
+            letsencrypt_webroot_path='/tmp',
             mode_test=True
         )
         called = mock_run.call_args[0][0]
@@ -77,7 +77,7 @@ class TestRequestCert(unittest.TestCase):
             certbot_credentials_file='/creds.ini',
             certbot_dns_propagation_seconds=42,
             certbot_email='admin@org',
-            certbot_webroot_path=None,
+            letsencrypt_webroot_path=None,
             mode_test=False
         )
         called = mock_run.call_args[0][0]
