@@ -93,7 +93,7 @@ def main():
                         help='Seconds to wait for DNS propagation (default: 60).')
     parser.add_argument('--certbot-email', type=str, required=True,
                         help='Email address for Certbot registration and recovery.')
-    parser.add_argument('--certbot-webroot-path', type=str, default='/var/lib/letsencrypt/',
+    parser.add_argument('--letsencrypt-webroot-path', type=str, default='/var/lib/letsencrypt/',
                         help='Webroot path for webroot challenge (default: /var/lib/letsencrypt/).')
     parser.add_argument('--mode-test', action='store_true',
                         help='Use the Certbot staging environment for testing.')
